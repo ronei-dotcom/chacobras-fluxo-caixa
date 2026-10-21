@@ -1,0 +1,63 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chacobras — publicar e usar</title><style>body{font:16px/1.65 Arial,sans-serif;color:#20382f;background:#f5f6f1;max-width:900px;margin:35px auto;padding:0 24px}h1,h2{color:#164c3e;line-height:1.2}h1{font-size:32px}h2{margin-top:40px}section{background:white;border:1px solid #dce3da;padding:24px 28px;border-radius:8px;margin:20px 0}code,pre{font:13px/1.6 Consolas,monospace}code{background:#edf1e9;padding:2px 5px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf1e9;padding:18px}.note{background:#fff1d6;padding:15px;border-radius:6px}button{padding:12px 20px;border:0;background:#164c3e;color:white;border-radius:5px;cursor:pointer}li{margin:9px 0}.small{font-size:13px;color:#64746c}@media print{button{display:none}body{background:white}}</style><h1>Chacobras · Fluxo de Caixa</h1><p>Versão 1.0 · 21/10/2026 · Guia de publicação e atualização.</p><section><h2>O que está pronto</h2><p>Aplicativo estático para GitHub Pages, configurado para o Firebase <code>ruralnutricao-7bf79</code>. Inclui login Google, premissas editáveis, cronograma de dívidas, cálculo automático, detalhamento das receitas e dos custos, conferências, exportação/importação JSON, impressão e histórico compartilhado.</p><p><strong>Os arquivos públicos não contêm os dados financeiros.</strong> Eles são importados no primeiro acesso pelo arquivo privado <code>Chacobras_Dados_Iniciais.json</code>.</p><p class="note">A conexão autenticada com o seu Firebase e o endereço publicado no GitHub ainda precisam da configuração abaixo. Não foram testados com a sua conta. As regras devem ser publicadas antes de salvar dados.</p></section>
+<section><h2>1. Enviar o aplicativo ao GitHub</h2><ol><li>Baixe e extraia <strong>Chacobras_GitHub.zip</strong> no computador.</li><li>Abra o repositório <a href="https://github.com/ronei-dotcom/chacobras-fluxo-caixa">ronei-dotcom/chacobras-fluxo-caixa</a>.</li><li>Na aba <strong>Code</strong>, escolha <strong>Add file → Upload files</strong>.</li><li>Arraste os <strong>arquivos extraídos</strong> para a página. O <code>index.html</code> deve ficar na raiz, ao lado do README, e não dentro de uma subpasta.</li><li>Clique em <strong>Commit changes</strong>. Não envie o ZIP fechado.</li><li>Em <strong>Settings → Pages</strong>, mantenha <strong>Deploy from a branch → main → / (root)</strong>. Aguarde a publicação e use o botão <strong>Visit site</strong>.</li></ol><p class="note">Envie somente o conteúdo de Chacobras_GitHub.zip. Não envie o JSON inicial, a planilha, os backups ou relatórios financeiros ao repositório público.</p><p>O código é HTML/CSS/JavaScript e não precisa executar <code>npm install firebase</code>. As bibliotecas de autenticação e banco são carregadas do CDN oficial do Firebase ao entrar com Google.</p></section>
+<section><h2>2. Autorizar o domínio do GitHub no Google</h2><ol><li>Abra o Firebase, projeto <code>ruralnutricao-7bf79</code>.</li><li>Em <strong>Authentication → Configurações → Domínios autorizados</strong>, clique em adicionar domínio.</li><li>Informe somente <code>ronei-dotcom.github.io</code>, sem https e sem caminho.</li><li>Confira que o provedor <strong>Google</strong> está ativado em Método de login.</li></ol><p>Use o e-mail <code>roneizoo@gmail.com</code> para o primeiro acesso. Ele é o administrador definido nesta versão.</p></section>
+<section><h2>3. Publicar as regras de acesso do Firestore</h2><p>Abra <strong>Firestore Database → Regras</strong>, no mesmo projeto novo. Substitua o texto pelas regras completas abaixo e clique em <strong>Publicar</strong>. Não use modo de teste.</p><p>Estas regras liberam apenas o administrador e as contas que ele autorizar dentro do aplicativo. O histórico é imutável e cada salvamento é vinculado à respectiva versão. A primeira carga de dados é exclusiva do administrador.</p><button id="copy">Copiar regras completas</button><p id="copied" class="small"></p><pre id="rules">rules_version = &#x27;2&#x27;;
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function googleUser() {
+   return request.auth != null &amp;&amp; request.auth.token.email_verified == true
+     &amp;&amp; request.auth.token.firebase.sign_in_provider == &#x27;google.com&#x27;;
+  }
+  function owner() {return googleUser() &amp;&amp; request.auth.token.email == &#x27;roneizoo@gmail.com&#x27;;}
+  function role() {
+   return get(/databases/$(database)/documents/chacobrasMembers/$(request.auth.token.email)).data.role;
+  }
+  function reader() {return googleUser() &amp;&amp; (owner() || role() in [&#x27;editor&#x27;,&#x27;viewer&#x27;]);}
+  function writer() {return googleUser() &amp;&amp; (owner() || role() == &#x27;editor&#x27;);}
+  function validBody(d) {
+   return d.keys().hasAll([&#x27;payload&#x27;,&#x27;revision&#x27;,&#x27;updatedBy&#x27;,&#x27;updatedAt&#x27;,&#x27;lastChangeId&#x27;])
+    &amp;&amp; d.keys().hasOnly([&#x27;payload&#x27;,&#x27;revision&#x27;,&#x27;updatedBy&#x27;,&#x27;updatedAt&#x27;,&#x27;lastChangeId&#x27;])
+    &amp;&amp; d.payload is string &amp;&amp; d.payload.size() &lt;= 250000
+    &amp;&amp; d.revision is int &amp;&amp; d.revision &gt; 0
+    &amp;&amp; d.updatedBy == request.auth.token.email &amp;&amp; d.updatedAt == request.time
+    &amp;&amp; d.lastChangeId is string &amp;&amp; d.lastChangeId.matches(&#x27;^[A-Za-z0-9]{20}$&#x27;);
+  }
+  function historyMatches(d) {
+   return getAfter(/databases/$(database)/documents/chacobrasFlow/main/revisions/$(d.lastChangeId)).data == d;
+  }
+  match /chacobrasMembers/{email} {
+   allow get: if googleUser() &amp;&amp; (owner() || request.auth.token.email == email);
+   allow list: if owner();
+   allow create, update: if owner() &amp;&amp; email != &#x27;roneizoo@gmail.com&#x27;
+     &amp;&amp; email.matches(&#x27;^[^/@ ]+@[^/@ ]+[.][^/@ ]+$&#x27;)
+     &amp;&amp; request.resource.data.keys().hasOnly([&#x27;role&#x27;])
+     &amp;&amp; request.resource.data.role in [&#x27;editor&#x27;,&#x27;viewer&#x27;,&#x27;disabled&#x27;];
+   allow delete: if false;
+  }
+  match /chacobrasFlow/main {
+   allow read: if reader();
+   allow create: if owner() &amp;&amp; validBody(request.resource.data)
+     &amp;&amp; request.resource.data.revision == 1 &amp;&amp; historyMatches(request.resource.data);
+   allow update: if writer() &amp;&amp; validBody(request.resource.data)
+     &amp;&amp; request.resource.data.revision == resource.data.revision + 1
+     &amp;&amp; request.resource.data.lastChangeId != resource.data.lastChangeId
+     &amp;&amp; historyMatches(request.resource.data);
+   allow delete: if false;
+   match /revisions/{id} {
+    allow read: if reader();
+    allow create: if writer() &amp;&amp; validBody(request.resource.data)
+     &amp;&amp; id == request.resource.data.lastChangeId
+     &amp;&amp; getAfter(/databases/$(database)/documents/chacobrasFlow/main).data == request.resource.data;
+    allow update, delete: if false;
+   }
+  }
+  match /{document=**} {allow read, write: if false;}
+ }
+}
+</pre></section>
+<section><h2>4. Importar os dados uma única vez</h2><ol><li>Abra o site publicado pelo GitHub e clique em <strong>Entrar com Google</strong>.</li><li>Escolha <code>roneizoo@gmail.com</code>.</li><li>Clique em <strong>Importar JSON</strong> e selecione o arquivo privado <code>Chacobras_Dados_Iniciais.json</code>.</li><li>Confira as telas <strong>Premissas</strong>, <strong>Dívidas</strong> e <strong>Conferências</strong>.</li><li>Clique em <strong>Salvar no Firebase</strong>. O sistema deve confirmar que a versão foi salva.</li></ol><p>O JSON inicial foi extraído da cópia oficial do Excel, atualizada em 21/10/2026. A compra de Cerro Memby permanece em investimentos, no valor integral das parcelas anuais remanescentes. Não cadastre essas parcelas novamente em Dívidas.</p></section>
+<section><h2>5. Liberar a Ana Beatriz</h2><p>Entre como administrador, abra <strong>Acessos</strong>, informe o e-mail exato da conta Google dela e escolha <strong>Editar e consultar</strong> ou <strong>Somente consultar</strong>. Clique em Liberar acesso. Depois ela abre o mesmo endereço do site e entra com a própria conta Google. O e-mail dela ainda não foi informado; nenhum acesso foi liberado automaticamente.</p></section>
+<section><h2>Como fazer as atualizações</h2><ul><li><strong>Premissas:</strong> altere preços, quantidades, ganhos de peso e investimentos. As taxas só substituem os anos de 2027 a 2035 ao clicar em <strong>Projetar série</strong>; o sistema pede confirmação antes de sobrescrever a série.</li><li><strong>Dívidas:</strong> adicione banco, contrato, data, principal e juros. Cada parcela entra no seu ano. Parcelas posteriores a 2035 ficam no cadastro e fora do horizonte. Não separe principal e juros da terra: mantenha o total em compra de estância conforme combinado.</li><li><strong>Salvar:</strong> clique em Salvar no Firebase depois das alterações. A outra pessoa recebe a versão quando estiver conectada. O aplicativo não grava automaticamente a cada digitação.</li><li><strong>Edição simultânea:</strong> se alguém salvar enquanto você edita, o sistema bloqueia a substituição da versão nova. Baixe seu backup antes de carregar a versão compartilhada e reaplique suas alterações.</li><li><strong>Histórico:</strong> cada salvamento registra autor e horário no servidor. É possível baixar uma das últimas 20 versões ou carregá-la para revisão. Para restaurar definitivamente, salve a versão revisada; o histórico anterior permanece.</li><li><strong>Backup:</strong> baixe o JSON antes de mudanças importantes. O backup contém dados financeiros e deve ficar fora do GitHub.</li><li><strong>Linhas zeradas:</strong> ocultadas automaticamente no fluxo e no detalhamento quando todos os dez anos são zero. Totais permanecem visíveis. O botão Mostrar linhas zeradas afeta também a impressão.</li><li><strong>Relatórios:</strong> Imprimir fluxo gera duas páginas de cinco anos cada. Fluxo + detalhamento gera seis. Na janela de impressão, escolha A4, paisagem, e desative cabeçalhos e rodapés do navegador.</li></ul><p>No modo <strong>Abrir arquivo local</strong>, nada é sincronizado. Baixe um JSON antes de fechar. Depois de carregar o site, o cálculo local não depende do Firebase; não é um aplicativo instalável com cache offline garantido.</p></section>
+<section><h2>Conferências e limites</h2><p>Os 700 valores do bloco de cálculo de 2026–2035 coincidiram com o Excel de referência. Foram conferidos os efeitos das parcelas de Cerro Memby, de dívidas bancárias, das receitas, da projeção por taxas e da conciliação do caixa e do rebanho. A importação, a edição e o backup foram exercitados no navegador.</p><p>As regras e o fluxo de login não foram validados no seu projeto ao vivo. A implantação exige o primeiro acesso e salvamento acima. A impressão foi verificada pela montagem das seis páginas no navegador; valide a prévia física no navegador que você usa antes de enviar ao banco.</p><p>O sistema mantém o horizonte 2026–2035 e a regra de compra com ciclo de 12 a 24 meses do modelo. Não calcula TIR ou CAGR e não inclui o bloco patrimonial no material bancário. As premissas de patrimônio são preservadas no cadastro e no JSON para uso interno.</p><p>Os avisos de juros zerados refletem os dados de origem, sem estimar juros que não foram informados.</p></section>
+<section><h2>Se algo não funcionar</h2><ul><li><strong>Site só mostra README:</strong> confirme que index.html está na raiz da branch main.</li><li><strong>Domínio não autorizado:</strong> adicione ronei-dotcom.github.io no Authentication.</li><li><strong>Acesso negado:</strong> confira a conta usada, as regras publicadas e a liberação em Acessos.</li><li><strong>Pop-up bloqueado:</strong> libere o pop-up do Google no navegador.</li><li><strong>Salvar não conclui:</strong> baixe um backup e confira a internet. Não feche a página com alterações pendentes.</li></ul></section>
+<script>document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(document.getElementById('rules').textContent);document.getElementById('copied').textContent='Regras copiadas. Cole na aba Regras do Firestore.';}catch{document.getElementById('copied').textContent='Selecione o texto das regras abaixo e copie manualmente.';}};</script></html>

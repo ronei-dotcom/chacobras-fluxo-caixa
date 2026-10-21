@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="description" content="Chacobras S.A. — planejamento do fluxo de caixa e relatórios bancários.">
+ <title>Chacobras | Fluxo de Caixa</title>
+ <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+ <div id="status" class="status" role="status" aria-live="polite"></div>
+ <div class="shell">
+  <header class="topbar"><a class="brand" href="./"><span class="brand-mark">C</span><span>CHACOBRAS<small>PLANEJAMENTO FINANCEIRO</small></span></a><div class="top-actions"><span id="connection" class="pill">Acesso restrito</span><button id="logout" class="quiet" hidden>Sair</button></div></header>
+  <main>
+   <section id="welcome" class="welcome">
+    <div class="eyebrow">CHACOBRAS S.A. · 2026—2035 · USD</div>
+    <h1>O planejamento da fazenda.<br><em>Os números à vista.</em></h1>
+    <p class="intro">Premissas, compromissos e fluxo de caixa em um só lugar. Atualize os valores e acompanhe de onde vem cada resultado.</p>
+    <div class="welcome-actions"><button id="login" class="primary">Entrar com Google <span aria-hidden="true">↗</span></button><button id="local" class="outline">Abrir arquivo local</button><button id="new-local" class="quiet">Novo cenário local</button></div>
+    <p id="login-help" class="muted">O acesso compartilhado é liberado pelo administrador. No modo local, as alterações precisam ser baixadas para guardar.</p>
+    <div class="feature-grid"><article><span>01 / PLANEJAR</span><h2>Premissas claras</h2><p>Quantidade, peso, ganho diário e preços explicam as receitas e os custos.</p></article><article><span>02 / CONFERIR</span><h2>Contas que fecham</h2><p>Movimentação do rebanho, parcelas e saldos calculados automaticamente.</p></article><article><span>03 / APRESENTAR</span><h2>Relatórios para o banco</h2><p>Fluxo de caixa objetivo e memória de cálculo, prontos para imprimir.</p></article></div>
+   </section>
+   <section id="workspace" hidden>
+    <div class="workspace-heading"><div><div class="eyebrow">PLANEJAMENTO · USD · 2026—2035</div><h1>Fluxo de caixa</h1><p id="save-status" class="muted"></p></div><div class="actions"><button id="import" class="outline">Importar JSON</button><button id="export" class="outline">Backup JSON</button><button id="save" class="primary">Salvar alterações</button></div></div>
+    <div id="conflict" class="warning" hidden>Há uma versão mais recente no Firebase. Exporte suas alterações antes de carregar a versão compartilhada. <button id="reload-remote">Carregar versão compartilhada</button></div>
+    <div id="local-warning" class="note" hidden>Arquivo local: os dados estão apenas nesta página. Use <strong>Backup JSON</strong> para guardar suas alterações. O modo local não envia dados ao Firebase.</div>
+    <nav id="tabs" class="tabs" aria-label="Seções do sistema"><button data-tab="flow" class="active">Fluxo de caixa</button><button data-tab="detail">Detalhamento</button><button data-tab="inputs">Premissas</button><button data-tab="debts">Dívidas</button><button data-tab="checks">Conferências</button><button data-tab="history">Histórico</button><button data-tab="access" id="access-tab" hidden>Acessos</button></nav>
+    <section id="view-flow" class="view"><div id="metrics" class="metrics"></div><div class="report-toolbar"><div><h2>Flujo de caja proyectado</h2><p class="muted">Linhas zeradas são ocultadas nos dez anos, preservando totais.</p></div><div class="actions"><label class="check"><input id="zeros" type="checkbox"> Mostrar linhas zeradas</label><button id="print-bank" class="outline">Imprimir fluxo</button><button id="print-detail" class="primary">Fluxo + detalhamento</button></div></div><div id="flow-table" class="table-wrap"></div><div class="method-note">Projeção em dólares americanos. Quantidades de animais mantêm as casas decimais do Excel. O relatório bancário termina no saldo acumulado. Valores patrimoniais ficam nas premissas internas.</div></section>
+    <section id="view-detail" class="view" hidden><h2>Origem dos números</h2><p class="muted">A memória de cálculo usa os mesmos valores do fluxo. Quantidades, ganhos de peso e preços explicam as receitas; o movimento do rebanho e os custos unitários explicam as despesas.</p><div id="detail-tables"></div></section>
+    <section id="view-inputs" class="view" hidden><div class="section-heading"><div><h2>Premissas do planejamento</h2><p class="muted">Edite valores, sem alterar fórmulas. Taxas são exibidas em percentual.</p></div></div><div id="input-groups"></div></section>
+    <section id="view-debts" class="view" hidden><div class="section-heading"><div><h2>Cronograma de dívidas</h2><p class="muted">Principal e juros por vencimento alimentam o fluxo do ano correspondente.</p></div><button id="add-debt" class="primary">Adicionar parcela</button></div><label class="field inline">Situação do cronograma<select id="debt-status"><option value="PENDIENTE">Pendente — relatório preliminar</option><option value="COMPLETA">Completo — informado pela empresa</option></select></label><p class="note">A compra de Cerro Memby fica em <strong>Premissas → Investimentos</strong>, pelo valor integral anual. Não cadastre essas mesmas parcelas novamente aqui.</p><div id="debt-table" class="table-wrap"></div><p id="debt-summary" class="muted"></p></section>
+    <section id="view-checks" class="view" hidden><h2>Conferências do modelo</h2><p class="muted">Diferenças até USD 0,01 são tratadas como arredondamento. Estas verificações não alteram os cálculos.</p><div id="checks"></div></section>
+    <section id="view-history" class="view" hidden><div class="section-heading"><div><h2>Histórico de versões</h2><p class="muted">Cada salvamento compartilhado registra autor, data e uma cópia das premissas e dívidas. São exibidas as últimas 20 versões.</p></div><button id="refresh-history" class="outline">Atualizar</button></div><div id="history-content"></div></section>
+    <section id="view-access" class="view" hidden><h2>Acessos ao fluxo</h2><p class="muted">Somente o administrador pode liberar ou revogar acesso. Use o e-mail exato da conta Google.</p><form id="access-form" class="access-form"><label class="field">Conta Google<input id="member-email" type="email" required placeholder="nome@exemplo.com"></label><label class="field">Permissão<select id="member-role"><option value="editor">Editar e consultar</option><option value="viewer">Somente consultar</option></select></label><button class="primary" type="submit">Liberar acesso</button></form><div id="member-list"></div></section>
+   </section>
+  </main>
+  <footer>CHACOBRAS S.A.<span>Fluxo de Caixa · v1.0 · 2026—2035</span><button id="help" class="quiet">Como usar e publicar</button></footer>
+ </div>
+ <input type="file" id="file-input" accept=".json,application/json" hidden>
+ <dialog id="help-dialog"><div class="section-heading"><h2>Como usar</h2><button id="close-help" class="quiet">Fechar</button></div><p><strong>Primeiro acesso:</strong> o administrador entra com Google, importa o arquivo privado Chacobras_Dados_Iniciais.json e clica em Salvar no Firebase.</p><p><strong>Atualizações:</strong> edite Premissas ou Dívidas e salve. O fluxo e o detalhamento são recalculados. As taxas só substituem os anos seguintes quando você clica em Projetar série.</p><p><strong>Ana Beatriz:</strong> depois de confirmar o e-mail dela, libere-o em Acessos. Ela entra pelo mesmo endereço com sua própria conta Google.</p><p><strong>Conflitos:</strong> se outra pessoa salvar durante sua edição, o sistema bloqueia a substituição. Baixe seu backup antes de carregar a versão compartilhada.</p><p><strong>Relatórios:</strong> Imprimir fluxo gera duas páginas; Fluxo + detalhamento gera seis. Na janela de impressão, use A4, paisagem e desative os cabeçalhos/rodapés do navegador.</p><p><strong>Arquivo local:</strong> funciona sem login e não sincroniza. Baixe um JSON antes de fechar a página.</p><p>Consulte o arquivo LEIA_PRIMEIRO.html do pacote para configurar as regras do Firebase e o domínio do GitHub.</p></dialog>
+ <div id="print-root"></div>
+ <script type="module" src="./app.js"></script>
+</body></html>

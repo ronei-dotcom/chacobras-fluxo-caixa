@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function googleUser() {
+   return request.auth != null && request.auth.token.email_verified == true
+     && request.auth.token.firebase.sign_in_provider == 'google.com';
+  }
+  function owner() {return googleUser() && request.auth.token.email == 'roneizoo@gmail.com';}
+  function role() {
+   return get(/databases/$(database)/documents/chacobrasMembers/$(request.auth.token.email)).data.role;
+  }
+  function reader() {return googleUser() && (owner() || role() in ['editor','viewer']);}
+  function writer() {return googleUser() && (owner() || role() == 'editor');}
+  function validBody(d) {
+   return d.keys().hasAll(['payload','revision','updatedBy','updatedAt','lastChangeId'])
+    && d.keys().hasOnly(['payload','revision','updatedBy','updatedAt','lastChangeId'])
+    && d.payload is string && d.payload.size() <= 250000
+    && d.revision is int && d.revision > 0
+    && d.updatedBy == request.auth.token.email && d.updatedAt == request.time
+    && d.lastChangeId is string && d.lastChangeId.matches('^[A-Za-z0-9]{20}$');
+  }
+  function historyMatches(d) {
+   return getAfter(/databases/$(database)/documents/chacobrasFlow/main/revisions/$(d.lastChangeId)).data == d;
+  }
+  match /chacobrasMembers/{email} {
+   allow get: if googleUser() && (owner() || request.auth.token.email == email);
+   allow list: if owner();
+   allow create, update: if owner() && email != 'roneizoo@gmail.com'
+     && email.matches('^[^/@ ]+@[^/@ ]+[.][^/@ ]+$')
+     && request.resource.data.keys().hasOnly(['role'])
+     && request.resource.data.role in ['editor','viewer','disabled'];
+   allow delete: if false;
+  }
+  match /chacobrasFlow/main {
+   allow read: if reader();
+   allow create: if owner() && validBody(request.resource.data)
+     && request.resource.data.revision == 1 && historyMatches(request.resource.data);
+   allow update: if writer() && validBody(request.resource.data)
+     && request.resource.data.revision == resource.data.revision + 1
+     && request.resource.data.lastChangeId != resource.data.lastChangeId
+     && historyMatches(request.resource.data);
+   allow delete: if false;
+   match /revisions/{id} {
+    allow read: if reader();
+    allow create: if writer() && validBody(request.resource.data)
+     && id == request.resource.data.lastChangeId
+     && getAfter(/databases/$(database)/documents/chacobrasFlow/main).data == request.resource.data;
+    allow update, delete: if false;
+   }
+  }
+  match /{document=**} {allow read, write: if false;}
+ }
+}
