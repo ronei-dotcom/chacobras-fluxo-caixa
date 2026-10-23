@@ -43,7 +43,7 @@ export function canonical(raw) {
   const errors=validate(raw);
   if(errors.length) throw new Error(errors.slice(0,8).join('\n'));
   return {schemaVersion:1,company:raw.company.trim(),currency:'USD',startYear:2026,debtStatus:raw.debtStatus,
-    inputs:Object.fromEntries(Object.keys(INPUT_META).map(r=>[r,raw.inputs[r].map(value=>INPUT_META[r].unit==='cabezas'?Math.round(value):value)])),
+    inputs:Object.fromEntries(Object.keys(INPUT_META).map(r=>[r,raw.inputs[r].slice()])),
     rates:Object.fromEntries(GROWTH.map(r=>[r,raw.rates[r]])),
     debts:raw.debts.map(d=>({bank:d.bank,contract:String(d.contract).trim(),due:d.due,principal:d.principal,interest:d.interest,note:String(d.note??'')}))};
 }
@@ -59,12 +59,7 @@ export function blankState() {
 // Reapplies only the future years of one selected series, after an explicit UI action.
 export function projectSeries(state,row) {
   if(!GROWTH.includes(Number(row))) throw new Error('Esta premissa não usa projeção por taxa.');
-  const heads=INPUT_META[row].unit==='cabezas';
-  if(heads) state.inputs[row][0]=Math.round(state.inputs[row][0]);
-  for(let i=1;i<10;i++) {
-    const value=Number(row)===14 ? state.inputs[row][i-1]+state.rates[row] : state.inputs[row][i-1]*(1+state.rates[row]);
-    state.inputs[row][i]=heads?Math.round(value):value;
-  }
+  for(let i=1;i<10;i++) state.inputs[row][i]=Number(row)===14 ? state.inputs[row][i-1]+state.rates[row] : state.inputs[row][i-1]*(1+state.rates[row]);
 }
 
 export function calculate(raw) {
@@ -82,11 +77,9 @@ export function calculate(raw) {
     a(23,v(11)*(1+v(22))*p(43)); a(18,v(24)*v(23));
     a(19,i===0?p(13):c[21][i-1]);
     const cycle=p(44)/12, grow=s.rates[8];
-    const sold2036=Math.round(p(8,9)*(1+grow));
-    const sold2037=Math.round(sold2036*(1+grow));
-    const next=i<9?p(8,i+1):sold2036;
-    const following=i<8?p(8,i+2):i===8?sold2036:sold2037;
-    a(20,Math.round((2-cycle)*next+(cycle-1)*following));
+    const next=i<9?p(8,i+1):p(8,9)*(1+grow);
+    const following=i<8?p(8,i+2):p(8,9)*(1+grow)**(i-7);
+    a(20,(2-cycle)*next+(cycle-1)*following);
     a(21,v(19)+v(20)-v(10)); a(27,v(21)); a(17,v(18)*v(20));
     a(34,-v(8)*p(40)); a(35,-v(14)*p(41)); a(36,-v(25)*v(26)*v(21));
     a(37,-v(30)*v(31)*v(10)); a(38,-v(8)*p(42)); a(39,-p(22,i)); a(40,-v(17));
@@ -118,8 +111,8 @@ export const TOTAL_ROWS = [7,16,42,6,53,65,73,74,75];
 export const DETAIL_INCOME = [
  ['Animales vendidos','cabezas',10],['Peso de compra','kg/cabeza',24],['Días de recría en pastura','días',26],
  ['Ganancia diaria en pastura','kg/cab/día',28],['Ganancia de peso en pastura','kg/cabeza',29],
- ['Días de terminación a pasto','días',31],['Ganancia diaria en terminación','kg/cab/día',32],
- ['Ganancia de peso en terminación','kg/cabeza',33],['Peso vivo de venta = compra + ganancias','kg/cabeza',12],
+ ['Días de terminación intensiva a pasto','días',31],['Ganancia diaria en terminación intensiva','kg/cab/día',32],
+ ['Ganancia de peso en terminación intensiva','kg/cabeza',33],['Peso vivo de venta = compra + ganancias','kg/cabeza',12],
  ['Rendimiento de canal','%',13],['Peso de canal = peso vivo × rendimiento','kg/cabeza',(s,c,i)=>c[12][i]*c[13][i]],
  ['Precio de venta de canal','USD/kg',11],['Valor por cabeza vendida','USD/cabeza',9],
  ['INGRESOS POR VENTA DE GANADO','USD',8,true],['Venta de productos de nutrición','USD',14],
@@ -132,8 +125,8 @@ export const DETAIL_COST = [
  ['Precio de compra en pie','USD/kg',23],['Valor por cabeza comprada','USD/cabeza',18],
  ['Compra de ganado: cabezas × valor por cabeza','USD',17,true],['Suplementación en pastura','USD/cab/día',25],
  ['Días de pastura','días',26],['Animales usados en cálculo de pastura (stock final)','cabezas',21],
- ['Gasto de suplementación: diaria × días × stock','USD',36,true],['Terminación a pasto','USD/cab/día',30],
- ['Días de terminación','días',31],['Gasto terminación: diaria × días × vendidos','USD',37,true],
+ ['Gasto de suplementación: diaria × días × stock','USD',36,true],['Terminación intensiva a pasto','USD/cab/día',30],
+ ['Días de terminación intensiva','días',31],['Gasto terminación intensiva: diaria × días × vendidos','USD',37,true],
  ['Costo nutrición / ingreso de nutrición','%',s=>s.inputs[41][0]],['Costo de compra y venta de nutrición','USD',35],
  ['Impuestos / venta de ganado','%',s=>s.inputs[40][0]],['Impuestos y tasas','USD',34],
  ['Administración / venta de ganado','%',s=>s.inputs[42][0]],['Gastos de administración','USD',38],

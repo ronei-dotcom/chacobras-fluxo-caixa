@@ -55,17 +55,17 @@ export const INPUT_META = {
     "scope": "annual"
   },
   "19": {
-    "label": "Costo diario terminación a pasto",
+    "label": "Costo diario terminación intensiva a pasto",
     "unit": "USD/cab/día",
     "scope": "annual"
   },
   "20": {
-    "label": "Días de terminación a pasto",
+    "label": "Días de terminación intensiva a pasto",
     "unit": "días",
     "scope": "annual"
   },
   "21": {
-    "label": "Ganancia diaria en terminación",
+    "label": "Ganancia diaria en terminación intensiva a pasto",
     "unit": "kg/cab/día",
     "scope": "annual"
   },
@@ -186,13 +186,13 @@ export const CALC_LABELS = {
   "28": "Ganancia de peso por día",
   "29": "Ganancia de peso total en pastura",
   "30": "Valor de la diaria ",
-  "31": "Días de confinamiento a pasto",
+  "31": "Días de terminación intensiva a pasto",
   "32": "Ganancia de peso por dia",
-  "33": "Ganancia de peso total en Confinamiento",
+  "33": "Ganancia de peso total en terminación intensiva a pasto",
   "34": "Impuestos, tasas",
   "35": "Costo de compra y venta de nutrición animal",
   "36": "Gasto de suplementación (Pastura)",
-  "37": "Gastos de producción confinamiento",
+  "37": "Gastos de terminación intensiva a pasto",
   "38": "Gastos de Administración",
   "39": "Mantenimiento de Establecimientos",
   "40": "Costos de ganadería/compra de hacienda",

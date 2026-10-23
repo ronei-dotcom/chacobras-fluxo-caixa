@@ -4,9 +4,9 @@ import {connect} from './cloud.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=(v,d=2)=>new Intl.NumberFormat('es-PY',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+const fmt=(v,d=2)=>{const n=Math.abs(v)<0.5*10**-d?0:v;return new Intl.NumberFormat('es-PY',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);};
 const money=v=>`USD ${fmt(v,0)}`;
-const pretty=(v,unit)=>unit==='%'?`${fmt(v*100,2)}%`:fmt(v,unit==='cabezas'?0:unit==='días'?0:unit==='kg/cab/día'?3:2);
+const pretty=(v,unit)=>unit==='%'?`${fmt(v*100,2)}%`:fmt(v,unit==='días'?0:unit==='kg/cab/día'?3:2);
 const editable=()=>mode==='local'||role==='owner'||role==='editor';
 let state=null,calc=null,dirty=false,mode='none',cloud=null,user=null,role=null,baseRevision=0,remote=null,saving=false,tabName='flow',unsubscribe=null,authObserved=false,noticeTimer;
 let authEpoch=0;
@@ -42,8 +42,8 @@ function showWorkspace(){
 function setState(s,{changed=false}={}){state=canonical(s);calc=calculate(state);dirty=changed;showWorkspace();}
 function resetUI(){state=null;calc=null;dirty=false;baseRevision=0;remote=null;role=null;$('workspace').hidden=true;$('welcome').hidden=false;updateStatus();}
 function table(rows,indices=YEARS.map((_,i)=>i),printing=false){
- const showZeros=$('zeros').checked;
- return `<table><thead><tr><th>Concepto / USD</th>${indices.map(i=>`<th>${YEARS[i]}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.total||showZeros||r.values.some(v=>Math.abs(v)>.000001)).map(r=>`<tr class="${r.major?'major':r.total?'total':''}"><td>${esc(r.label)}${r.unit&&r.unit!=='USD'?` <small>(${esc(r.unit)})</small>`:''}</td>${indices.map(i=>`<td class="${r.values[i]<0?'negative':''}">${r.unit?pretty(r.values[i],r.unit):fmt(r.values[i])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+ const showZeros=!printing&&$('zeros').checked;
+ return `<table><thead><tr><th>Concepto / USD</th>${indices.map(i=>`<th>${YEARS[i]}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.total||showZeros||r.values.some(v=>Math.abs(v)>.000001)).map(r=>`<tr class="${r.major?'major':r.total?'total':''}"><td>${esc(r.label)}${r.unit&&r.unit!=='USD'?` <small>(${esc(r.unit)})</small>`:''}</td>${indices.map(i=>`<td class="${r.values[i]<-.005?'negative':''}">${r.unit?pretty(r.values[i],r.unit):fmt(r.values[i])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function flowRows(){return BANK_REPORT.map(r=>({label:CALC_LABELS[r],values:calc[r],unit:'USD',total:TOTAL_ROWS.includes(r),major:[6,74,75].includes(r)}));}
 function detailRows(spec){return spec.map(([label,unit,source,total])=>({label,unit,total,values:YEARS.map((_,i)=>typeof source==='function'?source(state,calc,i):calc[source][i])}));}
@@ -60,7 +60,7 @@ function renderFlow(){
  $('flow-table').innerHTML=table(flowRows());
 }
 const GROUPS=[['Produção e receitas',[8,9,10,11,12,13]],['Compra e desenvolvimento do rebanho',[14,15,16,17,18,19,20,21]],['Manutenção e caixa',[22,23]],['Financiamentos e investimentos',[25,27,28,29,30,31,32]],['Parâmetros gerais',[40,41,42,43,44]],['Patrimônio — uso interno, fora do relatório bancário',[36,46,47,48]]];
-function inputHTML(r,i){const m=INPUT_META[r],pct=m.unit==='%',val=state.inputs[r][i],shown=typeof val==='number'&&Number.isFinite(val)?(pct?Number((val*100).toPrecision(12)):Number(val.toPrecision(12))):'';return `<input aria-label="${esc(m.label)} ${YEARS[i]}" type="number" min="0" ${pct?'max="100"':''} step="${m.unit==='cabezas'?1:'any'}" value="${shown}" data-row="${r}" data-year="${i}" ${editable()?'':'disabled'}>`;}
+function inputHTML(r,i){const m=INPUT_META[r],pct=m.unit==='%',val=state.inputs[r][i],shown=typeof val==='number'&&Number.isFinite(val)?(pct?Number((val*100).toPrecision(12)):Number(val.toPrecision(12))):'';return `<input aria-label="${esc(m.label)} ${YEARS[i]}" type="number" min="0" ${pct?'max="100"':''} step="any" value="${shown}" data-row="${r}" data-year="${i}" ${editable()?'':'disabled'}>`;}
 function renderInputs(){
  if(!state)return;
  $('input-groups').innerHTML=`<label class="field inline">Empresa<input id="company-name" maxlength="100" value="${esc(state.company)}" ${editable()?'':'disabled'}></label><section class="input-section"><h3>Taxas de projeção</h3><p class="muted">Alterar a taxa não sobrescreve os valores anuais. Clique em Projetar série para recalcular de 2027 a 2035 a partir de 2026. Sobrepreço soma pontos percentuais; as demais taxas multiplicam o valor anterior.</p><div class="rate-panel">${GROWTH.map(r=>`<label class="field">${esc(INPUT_META[r].label)} · ${r===14?'p.p./ano':'%/ano'}<div class="rate-actions"><input type="number" step="any" min="-99" max="1000" value="${typeof state.rates[r]==='number'?Number((state.rates[r]*100).toPrecision(12)):''}" data-rate="${r}" aria-label="Taxa ${esc(INPUT_META[r].label)}" ${editable()?'':'disabled'}><button type="button" class="outline" data-project="${r}" ${editable()?'':'disabled'}>Projetar série</button></div></label>`).join('')}</div></section>`+
@@ -139,7 +139,7 @@ function printReport(detail){
  if(detail)for(const [title,spec] of [['Memoria de cálculo · ingresos',DETAIL_INCOME],['Memoria de cálculo · costos',DETAIL_COST]])sets.push([title,detailRows(spec)]);
  const pages=[];for(const [title,rows]of sets)for(const offset of [0,5])pages.push({title,rows,indices:[0,1,2,3,4].map(i=>i+offset)});
  const stamp=new Date().toLocaleDateString('es-PY'),prelim=state.debtStatus==='PENDIENTE'?' · PRELIMINAR — CRONOGRAMA PENDIENTE':'';
- $('print-root').innerHTML=pages.map((p,i)=>`<section class="print-page"><header class="print-head"><div><h1>${esc(state.company)}</h1><h2>${esc(p.title)} · ${YEARS[p.indices[0]]}–${YEARS[p.indices[4]]}</h2></div><span>USD · ${stamp}${prelim}<br>${mode==='local'?'Archivo local':`Versión ${baseRevision}`}${dirty?' · Borrador — cambios sin guardar':''}</span></header>${table(p.rows,p.indices,true)}<p class="print-note">Proyección elaborada sobre las premisas informadas por la empresa. Cantidades de animales redondeadas a cabezas enteras en el cálculo. La compra de estancia se incluye como egreso de inversión; no se suma a las deudas bancarias.</p><footer class="print-footer"><span>CHACOBRAS · Flujo de caja y memoria de cálculo</span><span>${i+1} / ${pages.length}</span></footer></section>`).join('');
+ $('print-root').innerHTML=pages.map((p,i)=>`<section class="print-page"><header class="print-head"><div><h1>${esc(state.company)}</h1><h2>${esc(p.title)} · ${YEARS[p.indices[0]]}–${YEARS[p.indices[4]]}</h2></div><span>USD · ${stamp}${prelim}<br>${mode==='local'?'Archivo local':`Versión ${baseRevision}`}${dirty?' · Borrador — cambios sin guardar':''}</span></header>${table(p.rows,p.indices,true)}<p class="print-note">Proyección elaborada sobre las premisas informadas por la empresa. Cantidades sin redondeo de cabezas en el cálculo. La compra de estancia se incluye como egreso de inversión; no se suma a las deudas bancarias.</p><footer class="print-footer"><span>CHACOBRAS · Flujo de caja y memoria de cálculo</span><span>${i+1} / ${pages.length}</span></footer></section>`).join('');
  window.print();
 }
 
@@ -157,13 +157,6 @@ $('input-groups').oninput=e=>{if(!editable())return;const t=e.target;
  if(t.id==='company-name'){state.company=t.value;markDirty();return;}
  if(t.dataset.row){const pct=INPUT_META[t.dataset.row].unit==='%';state.inputs[t.dataset.row][Number(t.dataset.year)]=t.value===''?null:Number(t.value)/(pct?100:1);markDirty();}
  if(t.dataset.rate){state.rates[t.dataset.rate]=t.value===''?null:Number(t.value)/100;markDirty();}
-};
-$('input-groups').onchange=e=>{
- if(!editable())return;
- const t=e.target,r=t.dataset.row;
- if(r&&INPUT_META[r].unit==='cabezas'&&t.value!==''&&Number.isFinite(Number(t.value))&&Number(t.value)>=0){
-  const value=Math.round(Number(t.value));state.inputs[r][Number(t.dataset.year)]=value;t.value=String(value);markDirty();
- }
 };
 $('input-groups').onclick=e=>{if(!editable())return;const b=e.target.closest('[data-project]');if(!b)return;const r=Number(b.dataset.project);if(!confirm(`Substituir os valores de 2027–2035 de “${INPUT_META[r].label}” pela projeção a partir de 2026?`))return;try{const copy=clone(state);projectSeries(copy,r);canonical(copy);state=copy;markDirty();renderInputs();toast('Série anual recalculada. Confira os valores antes de salvar.');}catch(e){toast(explain(e),true);}};
 $('debt-status').onchange=e=>{if(editable()){state.debtStatus=e.target.value;markDirty();}};
